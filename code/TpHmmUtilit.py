@@ -17,8 +17,22 @@ import matplotlib.patches as pat
 from sklearn.metrics import confusion_matrix
 import warnings
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from pomegranate.distributions import Normal
-from pomegranate.hmm import DenseHMM
+# Support multiple pomegranate versions: try to import a Normal-like distribution
+try:
+    from pomegranate.distributions import Normal
+except Exception:
+    try:
+        # newer / alternate entrypoints
+        from pomegranate import NormalDistribution as Normal
+    except Exception:
+        from pomegranate.distributions import NormalDistribution as Normal
+try:
+    from pomegranate.hmm import DenseHMM
+except Exception:
+    try:
+        from pomegranate import HiddenMarkovModel as DenseHMM
+    except Exception:
+        from pomegranate.hmm import HiddenMarkovModel as DenseHMM
 import torch 
 
 class ListeFeat:
@@ -111,9 +125,47 @@ class Words:
         filePaths = []
         labels = []
         words = []
-        for f in os.listdir(path):
-            for w in os.listdir(path+'/' + f):
-                filePaths.append(path+'/' + f + '/' + w)
+        # If the provided path does not exist relative to the kernel cwd,
+        # try a few likely alternatives (project data folders).
+        if not os.path.isdir(path):
+            # If a file was accidentally passed (e.g. a .DS_Store entry), use its parent directory
+            if os.path.isfile(path):
+                path = os.path.dirname(path)
+            else:
+                # Try project data folder relative to this utility file
+                candidate = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', path))
+                if os.path.isdir(candidate):
+                    path = candidate
+                else:
+                    # Fallback to repository root data folder
+                    repo_candidate = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', path))
+                    if os.path.isdir(repo_candidate):
+                        path = repo_candidate
+                    else:
+                        # As a last resort, set to candidate (may raise later with clear message)
+                        absolute_fallback = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', path))
+                        path = absolute_fallback
+
+        # Final validation: if path still points to a file, use its parent; if not a directory, raise informative error
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+        if not os.path.isdir(path):
+            raise NotADirectoryError(f"_loadWaveFiles_: resolved path is not a directory: {path}")
+        # Debug: report resolved path and its entries
+        try:
+            entries = os.listdir(path)
+        except Exception as _e:
+            print(f"_loadWaveFiles_: cannot list path '{path}':", _e)
+            raise
+        print(f"_loadWaveFiles_: using path = {path}")
+        print(f"_loadWaveFiles_: entries = {entries}")
+        for f in entries:
+            fpath = os.path.join(path, f)
+            # skip non-directories (such as .DS_Store) and hidden files
+            if not os.path.isdir(fpath) or f.startswith('.'):
+                continue
+            for w in os.listdir(fpath):
+                filePaths.append(os.path.join(fpath, w))
                 labels.append(f)
                 if f not in words:
                     words.append(f)
@@ -398,7 +450,7 @@ class GaussianHMM:
             start_probability=[]
             ends=[]
             for _ in range(Nstates):
-                self.distributions.append(Normal())
+                self.distributions.append(Normal(0, 1))
                 start_probability.append(0.0)
                 ends.append(0)
             ends[-1]=1e-20

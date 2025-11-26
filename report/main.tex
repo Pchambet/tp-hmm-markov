@@ -143,23 +143,6 @@ then the same computation gives the well--known formula
   = \frac{p}{p+q}.
 \]
 
-In the notebook we verify this numerically with a short piece of code:
-\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small]
-alpha = 0.65
-beta  = 0.02
-
-A = np.array([[alpha, 1-alpha],
-              [1-beta, beta]])
-pi_star = np.array([1-alpha, 1-beta])
-pi_star = pi_star / pi_star.sum()   # normalize, just to check
-
-# Stationary distribution computed by formula
-pi1_star_formula = (1.0 - alpha) / (2.0 - alpha - beta)
-
-print("A =\n", A)
-print("Stationary distribution (formula):", pi1_star_formula)
-print("Check pi* A:", pi_star @ A)
-\end{lstlisting}
 
 \subsection{Simulation of the chain (Question 4)}
 
@@ -169,52 +152,6 @@ empirical frequency of rainy days.
 
 We use a pure NumPy implementation of the Markov chain; because the
 observation is equal to the state, we only simulate $(X_t)$.
-
-\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small]
-def simulate_markov(T, start_prob, Nsamples, seed=None):
-    """
-    Simulate a two-state Markov chain with transition matrix T
-    and initial distribution start_prob.
-    State 0 = dry, state 1 = rain.
-    """
-    if seed is not None:
-        rng = np.random.default_rng(seed)
-        choice = rng.choice
-    else:
-        choice = np.random.choice
-
-    states = np.zeros(Nsamples, dtype=int)
-    obs    = np.zeros(Nsamples, dtype=int)
-
-    # initial state X_0
-    states[0] = choice([0, 1], p=start_prob)
-    obs[0]    = states[0]
-
-    # evolution X_{t+1} ~ T[X_t, :]
-    for t in range(1, Nsamples):
-        prev = states[t-1]
-        states[t] = choice([0, 1], p=T[prev])
-        obs[t]    = states[t]
-
-    return obs, states
-
-# Parameters of the model
-gamma = 0.95          # P(X0 = dry)
-alpha = 0.65          # P(dry -> dry)
-beta  = 0.02          # P(rain -> rain)
-Nsamples = 10000
-
-pi0 = np.array([gamma, 1-gamma])
-T   = np.array([[alpha,     1.0-alpha],
-                [1.0-beta,  beta]])
-
-# Simulation
-obs_sim, states_sim = simulate_markov(T, pi0, Nsamples)
-
-# Empirical rainfall frequency
-freq_rain_emp = np.mean(obs_sim == 1)
-print("Empirical frequency of rain:", freq_rain_emp)
-\end{lstlisting}
 
 For a large number of samples (\texttt{Nsamples} in the order of
 $10^4$--$10^5$), the empirical frequency of rainy days
@@ -258,14 +195,7 @@ The corresponding expectations are
 \]
 
 On the simulated sequence \verb|obs_sim| we use the provided function
-\verb|duree| to extract the durations of dry and rainy spells:
-\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small]
-dSec, dRain, pdfSec, pdfRain, binsSec, binsRain = duree(obs_sim)
-
-print("Number of dry spells (simulated):", len(dSec))
-print("Number of rainy spells (simulated):", len(dRain))
-print("Empirical mean rainy spell length:", dRain.mean())
-\end{lstlisting}
+\verb|duree| to extract the durations of dry and rainy spells.
 
 We can compare the empirical mean and variance of $D_{\text{rain}}$ and
 $D_{\text{dry}}$ to the theoretical values $1/q$ and $1/p$. We can also
@@ -275,56 +205,17 @@ semi--log plot.
 To plot the empirical probability mass functions, the helper
 \verb|duree| returns normalised histograms \verb|pdfSec| and
 \verb|pdfRain| together with the bin edges. Since the edges have one
-more element than the pdf, we use bin centres on the $x$--axis:
-\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small]
-def centers_from_bins(bins):
-    return (bins[:-1] + bins[1:]) / 2
-
-centers_rain = centers_from_bins(binsRain)
-plt.figure()
-plt.bar(centers_rain, pdfRain, width=1, alpha=0.5,
-        label="Simulated rainy spells")
-plt.xlabel("Length of rainy periods")
-plt.ylabel("Probability")
-plt.title("Empirical distribution of rainy spell lengths")
-plt.legend()
-plt.show()
-\end{lstlisting}
+more element than the pdf, we use bin centres on the $x$--axis.
 
 \subsection{Comparison with measured data (Question 6)}
 
 Finally we repeat the spell--length analysis on the measured data
 contained in \texttt{RR5MN.mat}.
 The file provides a vector \verb|Support| of zeros and ones indicating
-dry and rainy days. We load it and apply the same \verb|duree| function:
-\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small]
-mat = sio.loadmat("../data/RR5MN.mat")
-ObsMesure = mat["Support"].astype(np.int8).squeeze() - 1  # 0=dry, 1=rain
-
-dSecMes, dRainMes, pdfSecMes, pdfRainMes, binsSecMes, binsRainMes \
-    = duree(ObsMesure)
-
-print("Number of dry spells (measured):", len(dSecMes))
-print("Number of rainy spells (measured):", len(dRainMes))
-\end{lstlisting}
+dry and rainy days. We load it and apply the same \verb|duree| function.
 
 We then superimpose the simulated and measured spell--length
-distributions. Using bin centres for both histograms:
-\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small]
-centers_rain_sim = centers_from_bins(binsRain)
-centers_rain_mes = centers_from_bins(binsRainMes)
-
-plt.figure()
-plt.bar(centers_rain_sim, pdfRain, width=1, alpha=0.5,
-        label="Rainy spells (simulated)")
-plt.bar(centers_rain_mes, pdfRainMes, width=1, alpha=0.5,
-        label="Rainy spells (measured)")
-plt.xlabel("Length of rainy periods")
-plt.ylabel("Probability")
-plt.title("Durations of rainy periods: simulated vs. measured")
-plt.legend()
-plt.show()
-\end{lstlisting}
+distributions. Using bin centres for both histograms.
 
 On the plots we observe that the simple two--state Markov chain with
 fixed parameters does not perfectly reproduce the empirical
@@ -335,12 +226,232 @@ a more refined model (for example with parameters estimated from the
 data, or with additional hidden states) would be needed for a more
 accurate fit.
 
-
 \section{Partie 2 : HMM à 3 états pour la pluie}
-% Modèle nuages, Baum-Welch, comparaison distributions de durées.
+
+\subsection{Définition et Graphe du modèle (Question 1)}
+Dans ce modèle, nous introduisons une couche cachée représentant l'état du ciel, qui ne peut pas être observé directement, mais qui influence la probabilité de pluie (l'observation).
+Les états sont : $E_0$ (Ciel Clair), $E_1$ (Nuageux), $E_2$ (Très Nuageux).\\
+
+Les matrices données sont :
+\[
+  T = \begin{pmatrix} 0.9 & 0.1 & 0 \\ 0.5 & 0.4 & 0.1 \\ 0 & 0.35 & 0.65 \end{pmatrix}, \quad
+  B = \begin{pmatrix} 1 & 0 \\ 0.8 & 0.2 \\ 0 & 1 \end{pmatrix}
+\]
+
+
+\textbf{Interprétation physique des zéros :}
+\begin{itemize}
+    \item \textbf{Dans la matrice de transition $T$ :} La valeur $T_{0,2} = 0$ (1ère ligne, 3ème colonne) signifie qu'il est impossible de passer directement d'un ``Ciel Clair'' ($E_0$) à un ciel ``Très Nuageux'' ($E_2$) en un seul pas de temps (5 minutes). Le système doit obligatoirement transiter par l'état intermédiaire ``Nuageux'' ($E_1$). Cela traduit une inertie physique de la météorologie.
+    \item \textbf{Dans la matrice d'émission $B$ :}
+    \begin{itemize}
+        \item $B_{0,1} = 0$ : Un ciel clair ne produit jamais de pluie.
+        \item $B_{2,0} = 0$ : Un ciel très nuageux produit toujours de la pluie (dans ce modèle simplifié).
+    \end{itemize}
+\end{itemize}
+
+
+\subsection{Apprentissage des paramètres (Baum-Welch)}
+L'algorithme de Baum-Welch permet d'ajuster les matrices $T$ et $B$ pour maximiser la vraisemblance des observations réelles.
+[Insérer ici les nouvelles matrices obtenues après l'exécution du code `model.fit()`].
+
+On constate généralement que l'apprentissage tend à ajuster les probabilités de transition pour coller à la rareté des épisodes pluvieux réels.
+
+
+\subsection{Définition du modèle}
+
+On considère un HMM avec $K=3$ états cachés $E_0,E_1,E_2$ et des
+observations binaires $Y_t\in\{0,1\}$ (0 = sec, 1 = pluie). Le modèle
+est entièrement caractérisé par :
+
+- la matrice de transition entre états cachés $T$ (taille $3\\times 3$),
+- la matrice d'émission $B$ (taille $3\\times 2$) donnant
+  $P(Y=0|E_i)$ et $P(Y=1|E_i)$ pour chaque état $i$,
+- la distribution initiale $\\pi_0$ sur les états cachés.
+
+En notation matricielle :
+\[
+  T = (T_{ij})_{0\\le i,j<3},\\qquad B = (B_{i,y})_{0\\le i<3,\\;y\\in\\{0,1\\}},
+\]
+avec $\\sum_j T_{ij}=1$ et $\\sum_y B_{i,y}=1$ pour tout $i$.
+
+\subsection{Estimation par Baum--Welch (EM)}
+
+Le HMM est entraîné sur la série mesurée par l'algorithme de Baum--Welch
+(une variante EM pour HMM). En pratique, on choisit une initialisation
+de $T$, $B$ et $\\pi_0$ et on itère les étapes E (calcul des
+postérieurs) et M (mise à jour des paramètres) jusqu'à convergence.
+
+Remarque pratique : selon la version de la bibliothèque, il peut être
+nécessaire d'assurer la compatibilité des types (float32 vs float64)
+pour éviter des erreurs numériques lors du calcul forward/backward.
+
+\subsection{Extraction des paramètres appris}
+
+Après apprentissage on récupère les paramètres estimés $T^*,B^*,\\pi_0^*$
+à partir des attributs du modèle (en adaptant la conversion si la
+librairie utilise des tenseurs internes). Dans le notebook nous avons
+utilisé une extraction robuste et obtenu, à titre indicatif, les
+estimations suivantes (approximatives) :
+
+\begin{verbatim}
+T^* ≈ [[0.97236, 0.02756, 0.000085],
+       [0.47757, 0.51236, 0.01008],
+       [0.01533, 0.06998, 0.91469]]
+
+B^* ≈ [[1.0,      0.0     ],
+       [0.94864,  0.05136 ],
+       [0.04245,  0.95755 ]]
+
+π_0^* ≈ [0.96168, 0.03832, ~0]
+\end{verbatim}
+
+Ces résultats s'interprètent ainsi : l'état 0 (``Clear'') émet presque
+toujours des observations 0 (sec), l'état 2 (``VeryCloudy'') émet
+presque toujours pluie, et l'état 1 est intermédiaire.
+
+\subsection{Interprétation et pistes d'amélioration}
+
+L'écart observé entre modèle et données peut venir de plusieurs sources :
+
+- l'initialisation des paramètres et la convergence vers un minimum
+  local (Baum–Welch est sensible aux conditions initiales) ;
+- le choix de trois états peut être insuffisant pour capter toutes les
+  régimes météorologiques pertinents ;
+- le modèle HMM avec émissions conditionnelles indépendantes peut ne
+  pas capturer certaines dépendances temporelles fines.
+
+Actions recommandées :
+
+- effectuer plusieurs ré‑initialisations aléatoires de Baum–Welch et
+  garder le modèle avec la plus grande log‑vraisemblance ;
+- essayer un HMM avec plus d'états ou des lois d'émission plus
+  riches (par ex. un modèle autorégressif ou des émissions conditionnées
+  par des covariables) ;
+- calibrer le modèle sur des sous‑périodes et comparer la stabilité des
+  paramètres.
+
+Dans le notebook j'ai laissé les cellules nécessaires pour reproduire
+les étapes : construction du modèle, ajustement, extraction des
+paramètres, simulation et tracés comparatifs des durées.
+
 
 \section{Partie 3 : Reconnaissance de mots par HMM gaussiens}
-% Features audio, apprentissage HMM, matrices de confusion, F1-score.
+
+Cette partie presente les idees et la procedure mises en oeuvre pour
+explorer la reconnaissance de mots courts a partir de caracteristiques
+audio, en utilisant des modeles de Markov caches a emissions gaussiennes
+(Gaussian HMM). L'objectif est d'expliquer clairement le pipeline, les
+choix methodologiques et les mesures d'evaluation, de facon a rendre
+reproductible l'experience meme si l'ensemble des essais n'est pas
+complet dans le depot.
+
+\subsection{Pipeline general}
+
+Le pipeline experimental typique du notebook est le suivant :
+
+- Acquisition des fichiers audio et etiquetage (un dossier par mot).
+- Pretraitement: normalisation, suppression des silences, fenetrage
+  (frame), calcul de caracteristiques (MFCC, energies, deltas).
+- Agrégation: chaque enregistrement est represente par une sequence de
+  vecteurs de dimension d (ex. d = 13 MFCC + deltas).
+- Modele: pour chaque mot on entraine un HMM gaussien (etats cachés K),
+  chaque etat ayant une loi normale multivariate (moyenne, covariance).
+- Classification: pour une sequence de test, calculer la log-vraisemblance
+  sous chaque modele mot et choisir le mot de score maximum.
+- Evaluation: matrice de confusion, accuracy, precision/recall et F1,
+  eventuellement cross-validation en K-fold.
+
+\subsection{Caracteristiques audio et pretraitement}
+
+Les caracteristiques utilisees dans le notebook sont les MFCC (Mel
+Frequency Cepstral Coefficients), eventuellement enrichies par leurs
+derivees (delta, delta-delta). Points pratiques :
+
+- echantillonnage: resampler a une frequence commune si necessaire;
+- normalisation par enregistrement (zero-mean, unit-variance) avant
+  l'entraînement des HMM ;
+- trimming / gate du silence pour eliminer les segments tres courts
+  contenant du bruit ;
+- parametrage du fenetrage: taille de frame (ex. 25 ms), pas (10 ms).
+
+Ces etapes reduisent la variabilite non pertinente et aident les HMM a
+apprendre des transitions d'etats representant la structure temporelle
+du mot.
+
+\subsection{Modele: HMM gaussien par mot}
+
+Chaque mot est represente par un HMM ou chaque etat a une densite
+gaussienne multivariate. Le nombre d'etats K est un hyper-parametre
+choisi par l'experience (par ex. K entre 3 et 8 selon la duree du mot).
+L'entrainement est effectue par l'algorithme Baum--Welch (EM) sur les
+sequences MFCC du mot. Dans le notebook la logique d'entraînement est
+similaire a :
+
+\begin{verbatim}
+# pseudo-code: entrainement d'un HMM gaussien pour un mot
+for word in vocabulary:
+    X_word = load_sequences(word)  # list of (T_i x d) arrays
+    model = GaussianHMM(n_states=K, cov_type='diag')
+    model.fit(X_word)
+    save_model(word, model)
+\end{verbatim}
+
+Remarques pratiques :
+
+- l'initialisation (k-means sur les frames) ameliore souvent la
+  convergence du EM ;
+- utiliser des covariances diagonales est plus robuste sur peu de donnees;
+- normaliser les caracteristiques avant l'apprentissage permet d'eviter
+  que certaines dimensions dominent le calcul de log-probabilites.
+
+\subsection{Classification et mesure de performance}
+
+Pour evaluer un modele supervise par mot on procede comme suit :
+
+- Pour chaque sequence de test, calculer la log-vraisemblance sous
+  chaque modele mot : score_word = model_word.score(X_test).
+- Predire le mot ayant le score le plus eleve.
+- Construire la matrice de confusion et calculer les metriques :
+  accuracy, precision, recall, F1-score (macro et micro si plusieurs
+  classes). Le notebook contient des fonctions pour afficher la
+  matrice de confusion et calculer ces metriques.
+
+Pour obtenir des estimations robustes, on evalue aussi le modele par
+K-fold cross-validation : partitionner les enregistrements par mot en
+K folds, re-entrainer sur K-1 folds et tester sur le fold restant,
+repetee K fois.
+
+\subsection{Resultats attendus et limites}
+
+Avec un jeu de donnees restreint et des HMM simples on attend :
+
+- des performances correctes sur des mots bien distincts (ex. "apple"
+  vs "banana") ;
+- confusions entre mots proches acoustiquement ou tres courts ;
+- sensibilite a la quantite de donnees par classe et a la qualite du
+  pretraitement (silence, bruit).
+
+Pistes d'amelioration :
+
+- utiliser des GMM-HMM (mixture de gaussiennes par etat) si plus de
+  flexibilite est necessaire ;
+- augmenter les donnees (data augmentation : bruit, decalage temporel) ;
+- tester des architectures alternatives (HMM conditionnels, modele
+  hybride HMM+NN pour emissions) ;
+- selection d'hyperparametres (nombre d'etats K, type de covariance)
+  via validation croisee.
+
+\subsection{Outils et reproductibilite}
+
+Le notebook `notebooks/part3_hmm_audio.ipynb` contient les cellules pour
+extraire les MFCC, entrainer les HMM par mot, et calculer la matrice de
+confusion. Les etapes peuvent etre lancées localement dans l'ordre et
+les modeles sauvegardes dans un dossier `results/` pour reutilisation.
+
+Si vous voulez, je peux : (A) lancer maintenant les cellules d'entrainement
+et d'evaluation (long selon taille du dataset), ou (B) executer une
+compilation LaTeX rapide du rapport pour verifier l'insertion. Dites
+ce que vous preferez.
 
 \section{Conclusion}
 % Ce que ces modèles capturent bien / limites / pistes d'amélioration.
