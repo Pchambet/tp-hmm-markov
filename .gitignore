@@ -1,12 +1,28 @@
-# Environnement virtuel
-.venv/
-
-# Fichiers Python
+# Python
 __pycache__/
 *.pyc
 
-# Notebooks
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# IDE
+.vscode/
+.cursor/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.envrc
 
 # LaTeX
 *.aux
@@ -15,5 +31,3 @@ __pycache__/
 *.toc
 *.synctex.gz
 
-# macOS
-.DS_Store
